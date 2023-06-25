@@ -75,9 +75,9 @@ pub fn extract_sexpr_from_string(
     source_code: &str,
     filename: &PathBuf,
     item: &ProgItem,
-    language_enum: &ProgLanguage,
 ) -> Result<Vec<ItemDef>> {
     let mut parser = Parser::new();
+    let language_enum: ProgLanguage = (*item).clone().into();
     let language = language_enum.tree_sitter_language();
     parser.set_language(language).unwrap();
 
@@ -152,12 +152,7 @@ pub fn extract_all_items_from_files(
         let mut source_code = String::new();
         file.read_to_string(&mut source_code)?;
 
-        all_functions.extend(extract_sexpr_from_string(
-            &source_code,
-            &file_path,
-            &item,
-            &language_enum,
-        )?);
+        all_functions.extend(extract_sexpr_from_string(&source_code, &file_path, &item)?);
     }
     Ok(all_functions)
 }
@@ -257,7 +252,7 @@ pub fn apply_changes(changes: Vec<ItemChange>) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lang::PythonItem;
+    use crate::lang::{PythonItem, PythonProgItem};
     use std::fs::{self, File};
     use std::io::Write;
     use std::path::Path;
@@ -350,8 +345,7 @@ class CircleCalculator:
         let functions = extract_sexpr_from_string(
             code,
             &PathBuf::new(),
-            &LanguageItem::Python(PythonItem::Function),
-            &LanguageEnum::Python,
+            &ProgItem::Python(PythonProgItem::Function),
         );
         for function in functions.unwrap() {
             println!("{}", function.definition);

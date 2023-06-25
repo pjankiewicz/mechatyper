@@ -19,6 +19,15 @@ pub enum ProgItem {
     Python(PythonProgItem),
 }
 
+impl From<ProgItem> for ProgLanguage {
+    fn from(value: ProgItem) -> Self {
+        match value {
+            ProgItem::Rust(_) => ProgLanguage::Rust,
+            ProgItem::Python(_) => ProgLanguage::Python,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub enum PythonProgItem {
     Function,

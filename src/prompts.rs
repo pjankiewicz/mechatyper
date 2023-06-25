@@ -53,11 +53,24 @@ if the user uses a different combination mention the ones that can be used and t
 we are working on more.
 
 USER_MESSAGE = "{}"
+
+Parse this message into one of: ClarificationNeeded, GoodInstructions, UserError.
 "#,
         all_instruction_examples()?,
         user_message
     );
     Ok(prompt)
+}
+
+#[test]
+fn test_wrap() {
+    println!(
+        "{}",
+        wrap_user_message(
+            "Add line by line documentation to Python function in the folder examlpes"
+        )
+        .unwrap()
+    )
 }
 
 pub fn chatgpt_wrong_answer(
@@ -112,12 +125,19 @@ pub enum CodeAction {
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, EnumString, EnumVariantNames)]
 pub enum SimpleAction {
+    /// Use this when you cannot match agains any other option
     Other(String),
+    /// Refactor and simplify
     Refactor,
+    /// Add documetation
     Document,
+    /// Add docstrings
     AddDocStrings,
+    /// Split long functions
     SplitLongFunctions,
+    /// Removes unused code
     RemoveDeadCode,
+    /// Add proper error handling
     AddErrorHandling,
 }
 
@@ -145,22 +165,30 @@ impl Default for CommonAction {
 
 impl SimpleAction {
     pub fn to_chat_gpt_prompt(&self) -> String {
-        match self {
+        let action_desc: String = match self {
             SimpleAction::Refactor =>
-                "Please refactor the following code to improve readability and maintainability: <CODE>. Ensure the code remains functionally equivalent. Return only the transformed code.".to_string(),
+                "refactor the following code to improve readability and maintainability".into(),
             SimpleAction::Document =>
-                "Please document the following code by adding appropriate comments: <CODE>. Explain the purpose and functionality of the code. Return only the documented code.".to_string(),
+                "document the following code by adding appropriate comments".into(),
             SimpleAction::AddDocStrings =>
-                "Please add docstrings to the following code: <CODE>. Provide detailed explanations for functions and classes. Return only the code with added docstrings.".to_string(),
+                "add docstrings to the following code".into(),
             SimpleAction::SplitLongFunctions =>
-                "Please split any long functions in the following code into smaller, more manageable functions: <CODE>. Ensure that the functionality remains the same. Return only the transformed code.".to_string(),
+                "split any long functions in the following code into smaller, more manageable functions".into(),
             SimpleAction::RemoveDeadCode =>
-                "Please remove any dead or unreachable code in the following code: <CODE>. Ensure that the remaining code is functional and clean. Return only the cleaned code.".to_string(),
+                "remove any dead or unreachable code in the following code".into(),
             SimpleAction::AddErrorHandling =>
-                "Please add error handling to the following code: <CODE>. Ensure that the code handles potential errors gracefully and provides informative error messages. Return only the code with error handling.".to_string(),
+                "add error handling to the following code".into(),
             SimpleAction::Other(action) =>
-                format!("Please help me to transform the code: <CODE>. The desired custom action is '{}'. Return the transformed code.", action),
-        }
+                format!("help me to transform the code. The desired custom action is '{}'", action),
+        };
+
+        format!(
+            "Please {}:\n\n<CODE>\n\n Ensure the code remains functionally equivalent. \
+            Return only the transformed code and do not include any explanations, comments, or additional text. \
+            The output should be only code, ready to be used as a replacement for the original code. \
+            Don't add special characters at the beginning or end. Code:",
+            action_desc
+        )
     }
 }
 

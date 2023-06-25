@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct GoodInstructions {
-    pub language: ProgLanguage,
     pub item: ProgItem,
     /// helpful message of how you understand the prompt
     pub answer: String,
@@ -31,8 +30,7 @@ pub struct UserError {
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct ClarificationNeeded {
-    pub language: Option<ProgItem>,
-    pub item: Option<ProgLanguage>,
+    pub item: Option<ProgItem>,
     pub folder: Option<String>,
     pub code_action: Option<SimpleAction>,
     pub answer: String,
@@ -51,12 +49,23 @@ pub enum InitialInstruction {
 
 pub fn good_instruction_example() -> Result<String> {
     let data = GoodInstructions {
-        language: ProgLanguage::Python,
         item: ProgItem::Python(PythonProgItem::Function),
         answer: "I understand that you want to document your Python functions in the folder src/"
             .to_string(),
         original_prompt: "Create a Python function".to_string(),
         code_action: SimpleAction::Document,
+        folder: Some("src".to_string()),
+    };
+    serde_json::to_string_pretty(&data).map_err(|e| anyhow!(e))
+}
+
+pub fn good_instruction_example_2() -> Result<String> {
+    let data = GoodInstructions {
+        item: ProgItem::Python(PythonProgItem::Function),
+        answer: "I understand that you want to document your Python functions in the folder using Pirate talk src/"
+            .to_string(),
+        original_prompt: "Create a Python function".to_string(),
+        code_action: SimpleAction::Other("Please add comments in Pirate style ARHRH".to_string()),
         folder: Some("src".to_string()),
     };
     serde_json::to_string_pretty(&data).map_err(|e| anyhow!(e))
@@ -72,7 +81,6 @@ pub fn user_error_instruction_example() -> Result<String> {
 
 pub fn clarification_needed_instruction_example() -> Result<String> {
     let data = ClarificationNeeded {
-        language: None,
         item: None,
         folder: None,
         code_action: None,
@@ -102,6 +110,8 @@ JSON Schema:
 Example:
 {}
 
+{}
+
 Clarification needed
 ====================
 language, item, folder, code action can be null or filled but not all of them.
@@ -115,6 +125,7 @@ Example:
 {}"#,
         good_instruction_json_schema,
         good_instruction_example()?,
+        good_instruction_example_2()?,
         clarification_json_schema,
         clarification_needed_instruction_example()?
     ))
