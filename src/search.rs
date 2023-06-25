@@ -71,9 +71,9 @@ pub fn extract_all_items_from_directory(
     let files = get_filenames(directory_path, &extensions, &excluded)?;
     extract_all_items_from_files(files, language_enum, item)
 }
-
 pub fn extract_sexpr_from_string(
     source_code: &str,
+    filename: &PathBuf,
     item: &LanguageItem,
     language_enum: &LanguageEnum,
 ) -> Result<Vec<ItemDef>> {
@@ -116,17 +116,21 @@ pub fn extract_sexpr_from_string(
                     )
                 })?;
 
+            let start_byte = node.node.start_byte();
+            // Find the start of the line in the source code
+            let line_start_byte = source_code[..start_byte].rfind('\n').map(|pos| pos + 1).unwrap_or(0);
+            let byte_range = line_start_byte..node.node.end_byte();
+            let definition = source_code[byte_range.clone()].to_string();
+
             let start_pos = node.node.start_position().row;
             let end_pos = node.node.end_position().row;
-            let byte_range = node.node.byte_range();
-            let definition = source_code[byte_range.start..byte_range.end].to_string();
             items.push(ItemDef {
                 definition,
                 start_pos,
                 end_pos,
                 start_byte: byte_range.start,
                 end_byte: byte_range.end,
-                filename: PathBuf::new(), // Modify this if needed
+                filename: filename.clone(),
             });
         }
     }
@@ -147,6 +151,7 @@ pub fn extract_all_items_from_files(
 
         all_functions.extend(extract_sexpr_from_string(
             &source_code,
+            &file_path,
             &item,
             &language_enum,
         )?);
@@ -154,7 +159,46 @@ pub fn extract_all_items_from_files(
     Ok(all_functions)
 }
 
-pub fn apply_changes(changes: Vec<ItemChange>) -> anyhow::Result<()> {
+fn apply_indentation(old_code: &str, new_code: &str) -> String {
+    let old_code_lines: Vec<&str> = old_code.lines().collect();
+    let new_code_lines: Vec<&str> = new_code.lines().collect();
+
+    // Detect the indentation in old code
+    let old_indentation = old_code_lines.iter()
+        .filter(|line| !line.trim().is_empty())
+        .map(|line| line.chars().take_while(|c| c.is_whitespace()).collect::<String>())
+        .next()
+        .unwrap_or_default();
+
+    // Detect the number of leading whitespace characters in new code
+    let new_indentation_count = new_code_lines.iter()
+        .filter(|line| !line.trim().is_empty())
+        .map(|line| line.chars().take_while(|c| c.is_whitespace()).count())
+        .min()
+        .unwrap_or(0);
+
+    // Apply indentation to new code
+    let indented_code = new_code_lines.into_iter()
+        .map(|line| {
+            if line.trim().is_empty() {
+                line.to_string()
+            } else {
+                old_indentation.clone() + &line[new_indentation_count..]
+            }
+        })
+        .collect::<Vec<String>>()
+        .join("\n");
+
+    // Ensure the output ends with a newline character
+    if indented_code.ends_with('\n') {
+        indented_code
+    } else {
+        indented_code + "\n"
+    }
+}
+
+
+pub fn apply_changes(changes: Vec<ItemChange>) -> Result<()> {
     // Group changes by file
     let mut changes_by_file: HashMap<PathBuf, Vec<ItemChange>> = HashMap::new();
     for change in changes {
@@ -180,9 +224,13 @@ pub fn apply_changes(changes: Vec<ItemChange>) -> anyhow::Result<()> {
             let end_line = change.before.end_pos;
 
             if start_line <= end_line && end_line < lines.len() {
+                // Apply the same indentation to the new code
+                println!("Old code indentation:\n{}", &change.before.definition);
+                let indented_new_code = apply_indentation(&change.before.definition, &change.after);
+                println!("New code before indentation:\n{}", change.after);
+                println!("New code after indentation:\n{}", indented_new_code);
                 // Concatenate the new lines and replace the corresponding lines in the original content
-                let replacement_lines: Vec<String> =
-                    change.after.lines().map(|line| line.to_string()).collect();
+                let replacement_lines: Vec<String> = indented_new_code.lines().map(|line| line.to_string()).collect();
                 lines.splice(start_line..=end_line, replacement_lines.iter().cloned());
             }
         }
@@ -195,4 +243,105 @@ pub fn apply_changes(changes: Vec<ItemChange>) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use std::fs::{self, File};
+    use std::path::Path;
+    use tempfile::tempdir;
+    use crate::lang::PythonItem;
+
+    #[test]
+    fn test_apply_changes() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("test_file.rs");
+
+        let initial_content = "fn example() {\n    println!(\"Hello, world!\");\n}\n";
+
+        // Write initial content to file
+        let mut file = File::create(&file_path).unwrap();
+        write!(file, "{}", initial_content).unwrap();
+
+        // Prepare changes
+        let changes = vec![ItemChange {
+            before: ItemDef {
+                definition: "fn example() {\n    println!(\"Hello, world!\");\n}\n".to_string(),
+                start_pos: 0,
+                end_pos: 2,
+                start_byte: 0,
+                end_byte: initial_content.len(),
+                filename: file_path.clone(),
+            },
+            after: "fn modified_example() {\n    println!(\"Hello, ChatGPT!\");\n}\n".to_string(),
+        }];
+
+        // Apply changes
+        let apply_result = apply_changes(changes);
+
+        // Assert that there were no errors
+        assert!(apply_result.is_ok());
+
+        // Check if the changes were applied correctly
+        let modified_content = fs::read_to_string(&file_path).unwrap();
+        assert_eq!(
+            modified_content,
+            "fn modified_example() {\n    println!(\"Hello, ChatGPT!\");\n}\n"
+        );
+    }
+
+    #[test]
+    fn test_apply_indentation_with_spaces() {
+        let old_code = "    def old_function():\n        print('This is the old function')\n";
+        let new_code = "def new_function():\n    print('This is the new function')\n";
+
+        let expected_indented_new_code = "    def new_function():\n        print('This is the new function')\n";
+        let indented_new_code = apply_indentation(old_code, new_code);
+
+        assert_eq!(indented_new_code, expected_indented_new_code);
+    }
+
+    #[test]
+    fn test_apply_indentation_with_tabs() {
+        let old_code = "\tdef old_function():\n\t\tprint('This is the old function')\n";
+        let new_code = "def new_function():\n\tprint('This is the new function')\n";
+
+        let expected_indented_new_code = "\tdef new_function():\n\t\tprint('This is the new function')\n";
+        let indented_new_code = apply_indentation(old_code, new_code);
+
+        assert_eq!(indented_new_code, expected_indented_new_code);
+    }
+
+    #[test]
+    fn test_extract_sexpr_from_string() {
+        let code = r#"
+import math
+
+class CircleCalculator:
+    def __init__(self, radius):
+        self.radius = radius
+        self.pi = 3.1415
+
+    def calc_area(self):
+        r = self.radius
+        pi = self.pi
+        a = pi * r * r
+        return a
+
+    def calc_circumference(self):
+        r = self.radius
+        pi = 3.1415
+        c = 2 * pi * r
+        return c"#;
+
+        let functions = extract_sexpr_from_string(code,
+                                              &PathBuf::new(),
+                                              &LanguageItem::Python(PythonItem::Function),
+                                 &LanguageEnum::Python);
+        for function in functions.unwrap() {
+            println!("{}", function.definition);
+        }
+    }
 }

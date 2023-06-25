@@ -1,3 +1,6 @@
+use strum_macros::{EnumString, EnumVariantNames};
+
+#[derive(Clone, Debug, EnumString, EnumVariantNames)]
 pub enum CodeAction {
     CustomAction(String),
     CommonAction(CommonAction),
@@ -5,6 +8,7 @@ pub enum CodeAction {
     RustAction(RustAction),
 }
 
+#[derive(Clone, Debug, EnumString, EnumVariantNames)]
 pub enum CommonAction {
     Refactor,
     Document,
@@ -19,6 +23,13 @@ pub enum CommonAction {
     SimplifyConditionalStatements,
 }
 
+impl Default for CommonAction {
+    fn default() -> Self {
+        CommonAction::Refactor
+    }
+}
+
+#[derive(Clone, Debug, EnumString, EnumVariantNames)]
 pub enum PythonAction {
     CustomFunctionAction(String),
     CustomClassAction(String),
@@ -36,6 +47,13 @@ pub enum PythonAction {
     RefactorNestedFunctions,
 }
 
+impl Default for PythonAction {
+    fn default() -> Self {
+        PythonAction::CustomClassAction("Refactor".into())
+    }
+}
+
+#[derive(Clone, Debug, EnumString, EnumVariantNames)]
 pub enum RustAction {
     CustomStructAction(String),
     CustomFunctionAction(String),
@@ -52,6 +70,12 @@ pub enum RustAction {
     UseBorrowingEffectively,
     UtilizeIteratorMethods,
     SimplifyMatchStatements,
+}
+
+impl Default for RustAction {
+    fn default() -> Self {
+        RustAction::CustomFunctionAction("Refactor".into())
+    }
 }
 
 impl CodeAction {
@@ -110,8 +134,10 @@ impl CodeAction {
                         "Please refactor the following Python code: <CODE>, by converting methods that don't use instance variables to static methods. Return only the code with static methods.".to_string(),
                     PythonAction::RefactorNestedFunctions =>
                         "Please refactor the following Python code: <CODE>, by moving deeply nested functions to the top level, and passing necessary data as parameters. Return only the refactored code.".to_string(),
-                    PythonAction::CustomFunctionAction(prompt) => todo!(),
-                    PythonAction::CustomClassAction(prompt) => todo!()
+                    PythonAction::CustomFunctionAction(prompt) =>
+                        format!("Please apply the following custom action to the given Python function: <CODE>. Custom action: {} Return only the modified code.", prompt),
+                    PythonAction::CustomClassAction(prompt) =>
+                        format!("Please apply the following custom action to the given Python class: <CODE>. Custom action: {} Return only the modified code.", prompt)
                 }
             }
             CodeAction::RustAction(rust_action) => {
@@ -140,9 +166,12 @@ impl CodeAction {
                         "Please refactor the following Rust code: <CODE>, to utilize iterator methods for more concise and efficient processing of collections. Return only the Rust code with iterator methods.".to_string(),
                     RustAction::SimplifyMatchStatements =>
                         "Please simplify any complex match statements in the following Rust code: <CODE>, by using patterns and combining cases where possible. Return only the simplified Rust code.".to_string(),
-                    RustAction::CustomStructAction(prompt) => todo!(),
-                    RustAction::CustomFunctionAction(prompt) => todo!(),
-                    RustAction::CustomEnumAction(prompt) => todo!()
+                    RustAction::CustomStructAction(prompt) =>
+                        format!("Please apply the following custom action to the given Rust struct: <CODE>. Custom action: {} Return only the modified code.", prompt),
+                    RustAction::CustomFunctionAction(prompt) =>
+                        format!("Please apply the following custom action to the given Rust function: <CODE>. Custom action: {} Return only the modified code.", prompt),
+                    RustAction::CustomEnumAction(prompt) =>
+                        format!("Please apply the following custom action to the given Rust enum: <CODE>. Custom action: {} Return only the modified code.", prompt)
                 }
             }
         }
