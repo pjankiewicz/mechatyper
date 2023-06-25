@@ -23,9 +23,7 @@ mod prompts;
 mod search;
 
 use crate::lang::{ProgItem, ProgLanguage, PythonProgItem};
-use crate::prompts::{
-    chatgpt_wrong_answer, get_system_prompt, wrap_user_message, CodeAction, CommonAction,
-};
+use crate::prompts::{chatgpt_wrong_answer, get_system_prompt, wrap_user_message, CodeAction, CommonAction, user_action_to_chatgpt_prompt};
 use crate::search::{apply_changes, extract_all_items_from_files, get_filenames, ItemChange};
 use lang::LanguageItem;
 
@@ -76,7 +74,15 @@ fn load_env_variables() {
     set_key(env::var("OPENAI_KEY").expect("OPENAI_KEY not set"));
 }
 
+fn clear_screen() {
+    // This is the ANSI escape code to clear the screen
+    print!("\x1B[2J\x1B[1;1H");
+    // Flush the output to ensure it is displayed
+    stdout().flush().unwrap();
+}
+
 fn print_introduction() {
+    clear_screen();
     println!(
         "{}",
         "Welcome to MechaTyper! Here you can interactively work with the program.\nType in your task, and get assistance!".bright_blue()
@@ -97,7 +103,7 @@ async fn process_user_message(
 
         if let Some(returned_message) = chat_completion.choices.first() {
             let maybe_json = returned_message.message.content.as_ref().unwrap().trim();
-            println!("Raw answer:\n{}", maybe_json);
+            // println!("Raw answer:\n{}", maybe_json);
             let instructions: Result<InitialInstruction> =
                 serde_json::from_str(maybe_json).map_err(|e| anyhow!(e));
 
@@ -205,8 +211,8 @@ fn create_chat_message(
 async fn make_change(good_instructions: GoodInstructions) -> Result<()> {
     println!("Instructions received: {:#?}", good_instructions);
     println!(
-        "Scope: {:?}, Action: {:?}, Path: {:?}",
-        good_instructions.item, good_instructions.code_action, good_instructions.folder
+        "Scope: {:?}, Path: {:?}",
+        good_instructions.item, good_instructions.folder
     );
 
     let folder: PathBuf = good_instructions
@@ -234,14 +240,14 @@ async fn make_change(good_instructions: GoodInstructions) -> Result<()> {
         println!("Changing function in file: {:?}", function.filename);
         // println!("{:#?}", function);
         // println!("FUNCTION BEFORE:\n\n{}", function.definition);
-        let prompt_text = good_instructions
-            .code_action
-            .to_chat_gpt_prompt()
-            .replace("<CODE>", &function.definition);
+        let prompt_text = user_action_to_chatgpt_prompt(
+            &good_instructions.item,
+            &good_instructions.user_message
+        ).replace("<CODE>", &function.definition);
         let messages = vec![ChatCompletionMessage {
             role: ChatCompletionMessageRole::User,
             content: Some(
-                prompt_text + ". Answer with code only. Keep the original indentation. Code:\n",
+                prompt_text
             ),
             name: None,
             function_call: None,

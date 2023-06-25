@@ -163,6 +163,21 @@ impl Default for CommonAction {
     }
 }
 
+pub fn user_action_to_chatgpt_prompt(prog_item: &ProgItem, user_message: &str) -> String {
+    format!(r#"
+Please {}:
+
+<CODE>
+
+Requirements:
+Ensure the code remains functionally equivalent.
+Return only the transformed code and do not include any explanations, comments, or additional text.
+The output should be only code, ready to be used as a replacement for the original code.
+Don't add special characters at the beginning or end.
+
+Code:"#, user_message)
+}
+
 impl SimpleAction {
     pub fn to_chat_gpt_prompt(&self) -> String {
         let action_desc: String = match self {

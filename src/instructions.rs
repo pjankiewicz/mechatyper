@@ -10,11 +10,7 @@ pub struct GoodInstructions {
     /// helpful message of how you understand the prompt
     pub answer: String,
     /// the original prompt
-    pub original_prompt: String,
-    /// what is the action that should be taken
-    /// please pick one action or if it cannot be
-    /// picked wrap the user request in SimpleAction::Other variant
-    pub code_action: SimpleAction,
+    pub user_message: String,
     /// if the user mentions any folder
     /// leave empty if a folder is not mentioned
     pub folder: Option<String>,
@@ -32,9 +28,9 @@ pub struct UserError {
 pub struct ClarificationNeeded {
     pub item: Option<ProgItem>,
     pub folder: Option<String>,
-    pub code_action: Option<SimpleAction>,
     pub answer: String,
     pub user_message: String,
+    pub clarification_needed: bool
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -52,8 +48,7 @@ pub fn good_instruction_example() -> Result<String> {
         item: ProgItem::Python(PythonProgItem::Function),
         answer: "I understand that you want to document your Python functions in the folder src/"
             .to_string(),
-        original_prompt: "Create a Python function".to_string(),
-        code_action: SimpleAction::Document,
+        user_message: "Create a Python function".to_string(),
         folder: Some("src".to_string()),
     };
     serde_json::to_string_pretty(&data).map_err(|e| anyhow!(e))
@@ -64,8 +59,7 @@ pub fn good_instruction_example_2() -> Result<String> {
         item: ProgItem::Python(PythonProgItem::Function),
         answer: "I understand that you want to document your Python functions in the folder using Pirate talk src/"
             .to_string(),
-        original_prompt: "Create a Python function".to_string(),
-        code_action: SimpleAction::Other("Please add comments in Pirate style ARHRH".to_string()),
+        user_message: "Create a Python function".to_string(),
         folder: Some("src".to_string()),
     };
     serde_json::to_string_pretty(&data).map_err(|e| anyhow!(e))
@@ -83,10 +77,10 @@ pub fn clarification_needed_instruction_example() -> Result<String> {
     let data = ClarificationNeeded {
         item: None,
         folder: None,
-        code_action: None,
         answer: "Can you please clarify what programming language you are referring to?"
             .to_string(),
         user_message: "Create a function".to_string(),
+        clarification_needed: false,
     };
     serde_json::to_string_pretty(&data).map_err(|e| anyhow!(e))
 }
