@@ -234,10 +234,7 @@ pub fn apply_changes(changes: Vec<ItemChange>) -> Result<()> {
 
             if start_line <= end_line && end_line < lines.len() {
                 // Apply the same indentation to the new code
-                println!("Old code indentation:\n{}", &change.before.definition);
                 let indented_new_code = apply_indentation(&change.before.definition, &change.after);
-                println!("New code before indentation:\n{}", change.after);
-                println!("New code after indentation:\n{}", indented_new_code);
                 // Concatenate the new lines and replace the corresponding lines in the original content
                 let replacement_lines: Vec<String> = indented_new_code
                     .lines()

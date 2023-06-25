@@ -1,13 +1,13 @@
+use crate::instructions::{all_instruction_examples, InitialInstruction};
 use crate::lang::{LanguageItem, ProgItem, ProgLanguage};
-use schemars::{JsonSchema, schema_for};
+use anyhow::Result;
+use schemars::{schema_for, JsonSchema};
 use serde::{Deserialize, Serialize};
 use strum_macros::{EnumString, EnumVariantNames};
-use crate::instructions::{all_instruction_examples, InitialInstruction};
-use anyhow::Result;
-
 
 pub fn get_system_prompt() -> Result<String> {
-    Ok(format!(r#"
+    Ok(format!(
+        r#"
 Hi ChatGPT. I will paste a user prompt for a code assistant tool. The tool works by iterating through some folder,
 find the items to be changed and applies the changes.
 
@@ -25,9 +25,10 @@ Requirements:
 SUPPORTED_ITEMS = {{"Rust": ["Struct", "Enum", "Function"], "Python": ["Function", "Class"]}}
 
 if the user uses a different combination mention the ones that can be used and tell that
-we are working on more."#, all_instruction_examples()?))
+we are working on more."#,
+        all_instruction_examples()?
+    ))
 }
-
 
 pub fn wrap_user_message(user_message: &str) -> Result<String> {
     let prompt = format!(
@@ -52,12 +53,18 @@ if the user uses a different combination mention the ones that can be used and t
 we are working on more.
 
 USER_MESSAGE = "{}"
-"#, all_instruction_examples()?, user_message
+"#,
+        all_instruction_examples()?,
+        user_message
     );
     Ok(prompt)
 }
 
-pub fn chatgpt_wrong_answer(chatgpt_answer: &str, original_question: &str, error_message: &str) -> Result<String> {
+pub fn chatgpt_wrong_answer(
+    chatgpt_answer: &str,
+    original_question: &str,
+    error_message: &str,
+) -> Result<String> {
     Ok(format!(
         r#"
 Hi ChatGPT. The answer you provided:
@@ -87,7 +94,12 @@ SUPPORTED_ITEMS = {{"Rust": ["Struct", "Enum", "Function"], "Python": ["Function
 
 ~~~~~~~~~~
 
-Please fix the issue and rewrite the answer so it matches the schema."#, chatgpt_answer, all_instruction_examples()?, original_question, error_message))
+Please fix the issue and rewrite the answer so it matches the schema."#,
+        chatgpt_answer,
+        all_instruction_examples()?,
+        original_question,
+        error_message
+    ))
 }
 
 #[derive(Clone, Debug, EnumString, EnumVariantNames)]

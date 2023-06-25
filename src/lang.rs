@@ -16,20 +16,20 @@ pub enum ProgLanguage {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub enum ProgItem {
     Rust(RustProgItem),
-    Python(PythonProgItem)
+    Python(PythonProgItem),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub enum PythonProgItem {
     Function,
-    Class
+    Class,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub enum RustProgItem {
     Function,
     Struct,
-    Enum
+    Enum,
 }
 
 #[derive(Clone, Debug)]

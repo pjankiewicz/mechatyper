@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize};
 use crate::lang::{ProgItem, ProgLanguage, PythonProgItem};
 use crate::prompts::SimpleAction;
-use schemars::{JsonSchema, schema_for};
 use anyhow::{anyhow, Result};
+use schemars::{schema_for, JsonSchema};
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct GoodInstructions {
@@ -46,14 +46,15 @@ pub enum InitialInstruction {
     UserError(UserError),
     ClarificationNeeded(ClarificationNeeded),
     Quit,
-    TooManyTries
+    TooManyTries,
 }
 
 pub fn good_instruction_example() -> Result<String> {
     let data = GoodInstructions {
         language: ProgLanguage::Python,
         item: ProgItem::Python(PythonProgItem::Function),
-        answer: "I understand that you want to document your Python functions in the folder src/".to_string(),
+        answer: "I understand that you want to document your Python functions in the folder src/"
+            .to_string(),
         original_prompt: "Create a Python function".to_string(),
         code_action: SimpleAction::Document,
         folder: Some("src".to_string()),
@@ -75,7 +76,8 @@ pub fn clarification_needed_instruction_example() -> Result<String> {
         item: None,
         folder: None,
         code_action: None,
-        answer: "Can you please clarify what programming language you are referring to?".to_string(),
+        answer: "Can you please clarify what programming language you are referring to?"
+            .to_string(),
         user_message: "Create a function".to_string(),
     };
     serde_json::to_string_pretty(&data).map_err(|e| anyhow!(e))
@@ -85,8 +87,10 @@ pub fn all_instruction_examples() -> Result<String> {
     let good_instruction = schema_for!(GoodInstructions);
     let good_instruction_json_schema = serde_json::to_string_pretty(&good_instruction).unwrap();
     let clarification_instruction = schema_for!(ClarificationNeeded);
-    let clarification_json_schema = serde_json::to_string_pretty(&clarification_instruction).unwrap();
-    Ok(format!(r#"
+    let clarification_json_schema =
+        serde_json::to_string_pretty(&clarification_instruction).unwrap();
+    Ok(format!(
+        r#"
 Examples of proper answers
 
 Good instructions
@@ -108,5 +112,10 @@ JSON Schema:
 {}
 
 Example:
-{}"#, good_instruction_json_schema, good_instruction_example()?, clarification_json_schema, clarification_needed_instruction_example()?))
+{}"#,
+        good_instruction_json_schema,
+        good_instruction_example()?,
+        clarification_json_schema,
+        clarification_needed_instruction_example()?
+    ))
 }
