@@ -1,4 +1,94 @@
+use crate::lang::{LanguageItem, ProgItem, ProgLanguage};
+use schemars::{JsonSchema, schema_for};
+use serde::{Deserialize, Serialize};
 use strum_macros::{EnumString, EnumVariantNames};
+use crate::instructions::{all_instruction_examples, InitialInstruction};
+use anyhow::Result;
+
+
+pub fn get_system_prompt() -> Result<String> {
+    Ok(format!(r#"
+Hi ChatGPT. I will paste a user prompt for a code assistant tool. The tool works by iterating through some folder,
+find the items to be changed and applies the changes.
+
+Your answer should be a JSON using one of those variants
+
+{}
+
+Requirements:
+- answer only with a proper JSON that can be parsed into one of those variants
+- please don't guess the programming language if it is not mentioned, ask for clarification
+  using ClarificationNeeded variant
+- users cannot select spefific classes
+- don't guess the folder name, leave empty if it is not mentioned
+
+SUPPORTED_ITEMS = {{"Rust": ["Struct", "Enum", "Function"], "Python": ["Function", "Class"]}}
+
+if the user uses a different combination mention the ones that can be used and tell that
+we are working on more."#, all_instruction_examples()?))
+}
+
+
+pub fn wrap_user_message(user_message: &str) -> Result<String> {
+    let prompt = format!(
+        r#"
+Hi ChatGPT. I will paste a user prompt for a code assistant tool. The tool works by iterating through some folder,
+find the items to be changed and applies the changes.
+
+Your answer should be one of these JSON structures
+
+{}
+
+Requirements:
+- answer only with a proper JSON that can be parsed into one of those variants
+- please don't guess the programming language if it is not mentioned, ask for clarification
+  using ClarificationNeeded variant
+- users cannot select spefific classes
+- Currently only some combinations of language and items are supported (others are coming soon).
+
+SUPPORTED_ITEMS = {{"rust": ["struct", "enum", "function"], "python": ["function", "class"]}}
+
+if the user uses a different combination mention the ones that can be used and tell that
+we are working on more.
+
+USER_MESSAGE = "{}"
+"#, all_instruction_examples()?, user_message
+    );
+    Ok(prompt)
+}
+
+pub fn chatgpt_wrong_answer(chatgpt_answer: &str, original_question: &str, error_message: &str) -> Result<String> {
+    Ok(format!(
+        r#"
+Hi ChatGPT. The answer you provided:
+
+{}
+
+Doesn't match the schemas:
+
+{}
+
+Original question was:
+
+{}
+
+Error:
+
+{}
+
+Requirements:
+- answer only with a proper JSON that can be parsed into one of those variants
+- please don't guess the programming language if it is not mentioned, ask for clarification
+  using ClarificationNeeded variant
+- users cannot select spefific classes
+- don't guess the folder name, leave empty if it is not mentioned
+
+SUPPORTED_ITEMS = {{"Rust": ["Struct", "Enum", "Function"], "Python": ["Function", "Class"]}}
+
+~~~~~~~~~~
+
+Please fix the issue and rewrite the answer so it matches the schema."#, chatgpt_answer, all_instruction_examples()?, original_question, error_message))
+}
 
 #[derive(Clone, Debug, EnumString, EnumVariantNames)]
 pub enum CodeAction {
@@ -8,8 +98,20 @@ pub enum CodeAction {
     RustAction(RustAction),
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, EnumString, EnumVariantNames)]
+pub enum SimpleAction {
+    Other(String),
+    Refactor,
+    Document,
+    AddDocStrings,
+    SplitLongFunctions,
+    RemoveDeadCode,
+    AddErrorHandling,
+}
+
 #[derive(Clone, Debug, EnumString, EnumVariantNames)]
 pub enum CommonAction {
+    Other(String),
     Refactor,
     Document,
     AddDocStrings,
@@ -26,6 +128,27 @@ pub enum CommonAction {
 impl Default for CommonAction {
     fn default() -> Self {
         CommonAction::Refactor
+    }
+}
+
+impl SimpleAction {
+    pub fn to_chat_gpt_prompt(&self) -> String {
+        match self {
+            SimpleAction::Refactor =>
+                "Please refactor the following code to improve readability and maintainability: <CODE>. Ensure the code remains functionally equivalent. Return only the transformed code.".to_string(),
+            SimpleAction::Document =>
+                "Please document the following code by adding appropriate comments: <CODE>. Explain the purpose and functionality of the code. Return only the documented code.".to_string(),
+            SimpleAction::AddDocStrings =>
+                "Please add docstrings to the following code: <CODE>. Provide detailed explanations for functions and classes. Return only the code with added docstrings.".to_string(),
+            SimpleAction::SplitLongFunctions =>
+                "Please split any long functions in the following code into smaller, more manageable functions: <CODE>. Ensure that the functionality remains the same. Return only the transformed code.".to_string(),
+            SimpleAction::RemoveDeadCode =>
+                "Please remove any dead or unreachable code in the following code: <CODE>. Ensure that the remaining code is functional and clean. Return only the cleaned code.".to_string(),
+            SimpleAction::AddErrorHandling =>
+                "Please add error handling to the following code: <CODE>. Ensure that the code handles potential errors gracefully and provides informative error messages. Return only the code with error handling.".to_string(),
+            SimpleAction::Other(action) =>
+                format!("Please help me to transform the code: <CODE>. The desired custom action is '{}'. Return the transformed code.", action),
+        }
     }
 }
 
@@ -106,6 +229,8 @@ impl CodeAction {
                         "Please add parameter validation to the functions in the following code: <CODE>. Ensure that the functions check for valid input before proceeding. Return only the code with parameter validation.".to_string(),
                     CommonAction::SimplifyConditionalStatements =>
                         "Please simplify the conditional statements in the following code: <CODE>. Reduce complexity and improve readability. Return only the simplified code.".to_string(),
+                    CommonAction::Other(other) =>
+                        format!("Please apply this change '{}' to the following code: <CODE>. Return only the simplified code.", other).to_string(),
                 }
             }
             CodeAction::PythonAction(python_action) => {

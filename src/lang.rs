@@ -1,9 +1,36 @@
+use anyhow::{anyhow, Error};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 use std::str::FromStr;
-use anyhow::{anyhow, Error};
 use tree_sitter::Language;
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+pub enum ProgLanguage {
+    Python,
+    Rust,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+pub enum ProgItem {
+    Rust(RustProgItem),
+    Python(PythonProgItem)
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+pub enum PythonProgItem {
+    Function,
+    Class
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+pub enum RustProgItem {
+    Function,
+    Struct,
+    Enum
+}
 
 #[derive(Clone, Debug)]
 pub enum LanguageItem {
@@ -23,13 +50,6 @@ pub enum RustItem {
     Enum,
     Function,
 }
-
-#[derive(Clone, Debug)]
-pub enum LanguageEnum {
-    Python,
-    Rust,
-}
-
 
 impl FromStr for LanguageItem {
     type Err = Error;
@@ -71,52 +91,52 @@ impl FromStr for RustItem {
     }
 }
 
-impl FromStr for LanguageEnum {
+impl FromStr for ProgLanguage {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
-            "python" => Ok(LanguageEnum::Python),
-            "rust" => Ok(LanguageEnum::Rust),
+            "python" => Ok(ProgLanguage::Python),
+            "rust" => Ok(ProgLanguage::Rust),
             _ => Err(anyhow!("Cannot parse {}", s)),
         }
     }
 }
 
-impl LanguageEnum {
+impl ProgLanguage {
     pub fn tree_sitter_language(&self) -> Language {
         match self {
-            LanguageEnum::Python => tree_sitter_python::language(),
-            LanguageEnum::Rust => tree_sitter_rust::language(),
+            ProgLanguage::Python => tree_sitter_python::language(),
+            ProgLanguage::Rust => tree_sitter_rust::language(),
         }
     }
 
     pub fn file_extensions(&self) -> Vec<&'static str> {
         match self {
-            LanguageEnum::Python => vec!["py"],
-            LanguageEnum::Rust => vec!["rs"],
+            ProgLanguage::Python => vec!["py"],
+            ProgLanguage::Rust => vec!["rs"],
         }
     }
 
     pub fn get_excluded_directories(&self) -> Vec<&'static str> {
         match self {
-            LanguageEnum::Python => vec!["site-packages", "venv", "__pycache__", ".pytest_cache"],
-            LanguageEnum::Rust => vec!["target", ".cargo"],
+            ProgLanguage::Python => vec!["site-packages", "venv", "__pycache__", ".pytest_cache"],
+            ProgLanguage::Rust => vec!["target", ".cargo"],
         }
     }
 }
 
-impl LanguageItem {
+impl ProgItem {
     pub fn to_sexpr(&self) -> String {
         match self {
-            LanguageItem::Python(item) => match item {
-                PythonItem::Function => "(function_definition) @item".into(),
-                PythonItem::Class => "(class_definition) @item".into(),
+            ProgItem::Python(item) => match item {
+                PythonProgItem::Function => "(function_definition) @item".into(),
+                PythonProgItem::Class => "(class_definition) @item".into(),
             },
-            LanguageItem::Rust(item) => match item {
-                RustItem::Struct => "(struct_item) @item".into(),
-                RustItem::Enum => "(enum_item) @item".into(),
-                RustItem::Function => "(function_item) @item".into(),
+            ProgItem::Rust(item) => match item {
+                RustProgItem::Struct => "(struct_item) @item".into(),
+                RustProgItem::Enum => "(enum_item) @item".into(),
+                RustProgItem::Function => "(function_item) @item".into(),
             },
         }
     }

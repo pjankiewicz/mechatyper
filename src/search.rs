@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{self, bail, Context, Result};
 use tree_sitter::{Node, Parser, Query, QueryCursor};
 
-use crate::lang::{LanguageEnum, LanguageItem};
+use crate::lang::{LanguageItem, ProgItem, ProgLanguage};
 
 #[derive(Clone, Debug)]
 pub struct ItemDef {
@@ -63,8 +63,8 @@ pub fn get_filenames(
 
 pub fn extract_all_items_from_directory(
     directory_path: &Path,
-    language_enum: LanguageEnum,
-    item: LanguageItem,
+    language_enum: ProgLanguage,
+    item: ProgItem,
 ) -> Result<Vec<ItemDef>> {
     let extensions = language_enum.file_extensions();
     let excluded = language_enum.get_excluded_directories();
@@ -74,8 +74,8 @@ pub fn extract_all_items_from_directory(
 pub fn extract_sexpr_from_string(
     source_code: &str,
     filename: &PathBuf,
-    item: &LanguageItem,
-    language_enum: &LanguageEnum,
+    item: &ProgItem,
+    language_enum: &ProgLanguage,
 ) -> Result<Vec<ItemDef>> {
     let mut parser = Parser::new();
     let language = language_enum.tree_sitter_language();
@@ -118,7 +118,10 @@ pub fn extract_sexpr_from_string(
 
             let start_byte = node.node.start_byte();
             // Find the start of the line in the source code
-            let line_start_byte = source_code[..start_byte].rfind('\n').map(|pos| pos + 1).unwrap_or(0);
+            let line_start_byte = source_code[..start_byte]
+                .rfind('\n')
+                .map(|pos| pos + 1)
+                .unwrap_or(0);
             let byte_range = line_start_byte..node.node.end_byte();
             let definition = source_code[byte_range.clone()].to_string();
 
@@ -140,8 +143,8 @@ pub fn extract_sexpr_from_string(
 
 pub fn extract_all_items_from_files(
     files: Vec<PathBuf>,
-    language_enum: LanguageEnum,
-    item: LanguageItem,
+    language_enum: ProgLanguage,
+    item: ProgItem,
 ) -> Result<Vec<ItemDef>> {
     let mut all_functions = Vec::new();
     for file_path in files {
@@ -164,21 +167,28 @@ fn apply_indentation(old_code: &str, new_code: &str) -> String {
     let new_code_lines: Vec<&str> = new_code.lines().collect();
 
     // Detect the indentation in old code
-    let old_indentation = old_code_lines.iter()
+    let old_indentation = old_code_lines
+        .iter()
         .filter(|line| !line.trim().is_empty())
-        .map(|line| line.chars().take_while(|c| c.is_whitespace()).collect::<String>())
+        .map(|line| {
+            line.chars()
+                .take_while(|c| c.is_whitespace())
+                .collect::<String>()
+        })
         .next()
         .unwrap_or_default();
 
     // Detect the number of leading whitespace characters in new code
-    let new_indentation_count = new_code_lines.iter()
+    let new_indentation_count = new_code_lines
+        .iter()
         .filter(|line| !line.trim().is_empty())
         .map(|line| line.chars().take_while(|c| c.is_whitespace()).count())
         .min()
         .unwrap_or(0);
 
     // Apply indentation to new code
-    let indented_code = new_code_lines.into_iter()
+    let indented_code = new_code_lines
+        .into_iter()
         .map(|line| {
             if line.trim().is_empty() {
                 line.to_string()
@@ -196,7 +206,6 @@ fn apply_indentation(old_code: &str, new_code: &str) -> String {
         indented_code + "\n"
     }
 }
-
 
 pub fn apply_changes(changes: Vec<ItemChange>) -> Result<()> {
     // Group changes by file
@@ -230,7 +239,10 @@ pub fn apply_changes(changes: Vec<ItemChange>) -> Result<()> {
                 println!("New code before indentation:\n{}", change.after);
                 println!("New code after indentation:\n{}", indented_new_code);
                 // Concatenate the new lines and replace the corresponding lines in the original content
-                let replacement_lines: Vec<String> = indented_new_code.lines().map(|line| line.to_string()).collect();
+                let replacement_lines: Vec<String> = indented_new_code
+                    .lines()
+                    .map(|line| line.to_string())
+                    .collect();
                 lines.splice(start_line..=end_line, replacement_lines.iter().cloned());
             }
         }
@@ -248,11 +260,11 @@ pub fn apply_changes(changes: Vec<ItemChange>) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
+    use crate::lang::PythonItem;
     use std::fs::{self, File};
+    use std::io::Write;
     use std::path::Path;
     use tempfile::tempdir;
-    use crate::lang::PythonItem;
 
     #[test]
     fn test_apply_changes() {
@@ -297,7 +309,8 @@ mod tests {
         let old_code = "    def old_function():\n        print('This is the old function')\n";
         let new_code = "def new_function():\n    print('This is the new function')\n";
 
-        let expected_indented_new_code = "    def new_function():\n        print('This is the new function')\n";
+        let expected_indented_new_code =
+            "    def new_function():\n        print('This is the new function')\n";
         let indented_new_code = apply_indentation(old_code, new_code);
 
         assert_eq!(indented_new_code, expected_indented_new_code);
@@ -308,7 +321,8 @@ mod tests {
         let old_code = "\tdef old_function():\n\t\tprint('This is the old function')\n";
         let new_code = "def new_function():\n\tprint('This is the new function')\n";
 
-        let expected_indented_new_code = "\tdef new_function():\n\t\tprint('This is the new function')\n";
+        let expected_indented_new_code =
+            "\tdef new_function():\n\t\tprint('This is the new function')\n";
         let indented_new_code = apply_indentation(old_code, new_code);
 
         assert_eq!(indented_new_code, expected_indented_new_code);
@@ -336,10 +350,12 @@ class CircleCalculator:
         c = 2 * pi * r
         return c"#;
 
-        let functions = extract_sexpr_from_string(code,
-                                              &PathBuf::new(),
-                                              &LanguageItem::Python(PythonItem::Function),
-                                 &LanguageEnum::Python);
+        let functions = extract_sexpr_from_string(
+            code,
+            &PathBuf::new(),
+            &LanguageItem::Python(PythonItem::Function),
+            &LanguageEnum::Python,
+        );
         for function in functions.unwrap() {
             println!("{}", function.definition);
         }
