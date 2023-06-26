@@ -4,6 +4,10 @@
 
 **MechaTyper** is a powerful and interactive tool designed to help programmers and developers extract information and refactor code within a project. It uses a combination of source code parsing and querying to effectively extract constructs such as functions, classes, and other elements, and allows the users to manipulate and apply changes to the source code files.
 
+## Demo
+
+<img src="img/demo.gif"/>
+
 ## Features
 
 - **Code Parsing**: MechaTyper uses the `tree-sitter` library to parse source code files in various programming languages.
