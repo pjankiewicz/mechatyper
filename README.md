@@ -1,6 +1,8 @@
 # MechaTyper
 
-MechaTyper is a powerful and interactive tool designed to help programmers and developers extract information and refactor code within a project. It uses a combination of source code parsing and querying to effectively extract constructs such as functions, classes, and other elements, and allows the users to manipulate and apply changes to the source code files.
+<img src="img/mechatyper.png"/>
+
+**MechaTyper** is a powerful and interactive tool designed to help programmers and developers extract information and refactor code within a project. It uses a combination of source code parsing and querying to effectively extract constructs such as functions, classes, and other elements, and allows the users to manipulate and apply changes to the source code files.
 
 ## Features
 
@@ -55,4 +57,4 @@ Contributions to MechaTyper are welcomed. Please ensure to follow the coding sta
 
 ## License
 
-MechaTyper is licensed under the MIT License. See [LICENSE](LICENSE) for more information.
+MechaTyper is licensed under the MIT License. See [LICENSE](LICENSE) for more information.![img.png](img/mechatyper.png)
