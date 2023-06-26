@@ -1,8 +1,9 @@
-use colored::Colorize;
-use openai::set_key;
 use std::env;
 use std::io::{stdin, stdout, Write};
 use std::path::PathBuf;
+
+use colored::Colorize;
+use openai::set_key;
 
 pub fn find_git_directory(mut path: PathBuf) -> Option<PathBuf> {
     loop {

@@ -7,7 +7,6 @@ use std::path::{Path, PathBuf};
 use std::thread::Scope;
 use std::{env, fs};
 
-use crate::instructions::{all_instruction_examples, GoodInstructions, InitialInstruction};
 use anyhow::{anyhow, bail, Result};
 use clap::{Parser as ClapParser, Subcommand};
 use colored::Colorize;
@@ -17,12 +16,7 @@ use openai::set_key;
 use schemars::schema_for;
 use tree_sitter::{Language, Node, Parser, Query, QueryCursor};
 
-mod instructions;
-mod lang;
-mod prompts;
-mod search;
-mod utils;
-
+use crate::instructions::{all_instruction_examples, GoodInstructions, InitialInstruction};
 use crate::lang::{ProgItem, ProgLanguage, PythonProgItem};
 use crate::prompts::{
     chatgpt_wrong_answer, chatgpt_wrong_code_proposal, get_system_prompt,
@@ -31,6 +25,12 @@ use crate::prompts::{
 use crate::search::{
     apply_changes, extract_all_items_from_files, get_filenames, parse_code, ItemChange,
 };
+
+mod instructions;
+mod lang;
+mod prompts;
+mod search;
+mod utils;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

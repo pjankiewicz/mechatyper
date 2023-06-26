@@ -1,7 +1,8 @@
-use crate::lang::{ProgItem, ProgLanguage, PythonProgItem};
 use anyhow::{anyhow, Result};
-use schemars::{schema_for, JsonSchema};
+use schemars::{JsonSchema, schema_for};
 use serde::{Deserialize, Serialize};
+
+use crate::lang::{ProgItem, ProgLanguage, PythonProgItem};
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct GoodInstructions {

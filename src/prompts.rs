@@ -1,9 +1,10 @@
-use crate::instructions::{all_instruction_examples, InitialInstruction};
-use crate::lang::{ProgItem, ProgLanguage};
 use anyhow::Result;
-use schemars::{schema_for, JsonSchema};
+use schemars::{JsonSchema, schema_for};
 use serde::{Deserialize, Serialize};
 use strum_macros::{EnumString, EnumVariantNames};
+
+use crate::instructions::{all_instruction_examples, InitialInstruction};
+use crate::lang::{ProgItem, ProgLanguage};
 
 pub fn get_system_prompt() -> Result<String> {
     Ok(format!(

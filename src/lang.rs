@@ -1,10 +1,11 @@
-use anyhow::{anyhow, Error};
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 use std::str::FromStr;
+
+use anyhow::{anyhow, Error};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use tree_sitter::Language;
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]

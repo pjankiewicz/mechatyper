@@ -25,6 +25,7 @@ pub struct ItemChange {
     pub before: ItemDef,
     pub after: String, // assuming you want to replace with a new string
 }
+
 pub fn get_filenames(
     path: &Path,
     extensions: &[&str],
@@ -71,6 +72,7 @@ pub fn extract_all_items_from_directory(
     let files = get_filenames(directory_path, &extensions, &excluded)?;
     extract_all_items_from_files(files, item)
 }
+
 pub fn extract_sexpr_from_string(
     source_code: &str,
     filename: &PathBuf,
@@ -253,12 +255,15 @@ pub fn apply_changes(changes: Vec<ItemChange>) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::lang::PythonProgItem;
     use std::fs::{self, File};
     use std::io::Write;
     use std::path::Path;
+
     use tempfile::tempdir;
+
+    use crate::lang::PythonProgItem;
+
+    use super::*;
 
     #[test]
     fn test_apply_changes() {
