@@ -57,4 +57,4 @@ Contributions to MechaTyper are welcomed. Please ensure to follow the coding sta
 
 ## License
 
-MechaTyper is licensed under the MIT License. See [LICENSE](LICENSE) for more information.![img.png](img/mechatyper.png)
+MechaTyper is licensed under the MIT License. See [LICENSE](LICENSE) for more information.
