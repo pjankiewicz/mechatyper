@@ -32,6 +32,10 @@ impl From<ProgItem> for ProgLanguage {
 pub enum PythonProgItem {
     Function,
     Class,
+    Method,
+    Decorator,
+    Generator,
+    Comprehension,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -39,65 +43,12 @@ pub enum RustProgItem {
     Function,
     Struct,
     Enum,
-}
-
-#[derive(Clone, Debug)]
-pub enum LanguageItem {
-    Python(PythonItem),
-    Rust(RustItem),
-}
-
-#[derive(Clone, Debug)]
-pub enum PythonItem {
-    Function,
-    Class,
-}
-
-#[derive(Clone, Debug)]
-pub enum RustItem {
-    Struct,
-    Enum,
-    Function,
-}
-
-impl FromStr for LanguageItem {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "Python.Function" => Ok(LanguageItem::Python(PythonItem::Function)),
-            "Python.Class" => Ok(LanguageItem::Python(PythonItem::Class)),
-            "Rust.Struct" => Ok(LanguageItem::Rust(RustItem::Struct)),
-            "Rust.Enum" => Ok(LanguageItem::Rust(RustItem::Enum)),
-            "Rust.Function" => Ok(LanguageItem::Rust(RustItem::Function)),
-            _ => Err(anyhow!("Cannot parse {}", s)),
-        }
-    }
-}
-
-impl FromStr for PythonItem {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "function" => Ok(PythonItem::Function),
-            "class" => Ok(PythonItem::Class),
-            _ => Err(anyhow!("Cannot parse {}", s)),
-        }
-    }
-}
-
-impl FromStr for RustItem {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "struct" => Ok(RustItem::Struct),
-            "enum" => Ok(RustItem::Enum),
-            "function" => Ok(RustItem::Function),
-            _ => Err(anyhow!("Cannot parse {}", s)),
-        }
-    }
+    Trait,
+    Impl,
+    Macro,
+    Const,
+    Static,
+    TypeAlias,
 }
 
 impl FromStr for ProgLanguage {
@@ -141,11 +92,23 @@ impl ProgItem {
             ProgItem::Python(item) => match item {
                 PythonProgItem::Function => "(function_definition) @item".into(),
                 PythonProgItem::Class => "(class_definition) @item".into(),
+                PythonProgItem::Method => "(class_definition method_definition) @item".into(),
+                PythonProgItem::Decorator => "(decorator) @item".into(),
+                PythonProgItem::Generator => "(function_definition yield) @item".into(),
+                PythonProgItem::Comprehension => {
+                    "(list_comprehension set_comprehension dictionary_comprehension) @item".into()
+                }
             },
             ProgItem::Rust(item) => match item {
+                RustProgItem::Function => "(function_item) @item".into(),
                 RustProgItem::Struct => "(struct_item) @item".into(),
                 RustProgItem::Enum => "(enum_item) @item".into(),
-                RustProgItem::Function => "(function_item) @item".into(),
+                RustProgItem::Trait => "(trait_item) @item".into(),
+                RustProgItem::Impl => "(impl_item) @item".into(),
+                RustProgItem::Macro => "(macro_definition) @item".into(),
+                RustProgItem::Const => "(const_item) @item".into(),
+                RustProgItem::Static => "(static_item) @item".into(),
+                RustProgItem::TypeAlias => "(type_alias) @item".into(),
             },
         }
     }

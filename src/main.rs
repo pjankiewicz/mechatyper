@@ -21,29 +21,22 @@ mod instructions;
 mod lang;
 mod prompts;
 mod search;
+mod utils;
 
 use crate::lang::{ProgItem, ProgLanguage, PythonProgItem};
-use crate::prompts::{chatgpt_wrong_answer, get_system_prompt, wrap_user_message, CodeAction, CommonAction, user_action_to_chatgpt_prompt};
-use crate::search::{apply_changes, extract_all_items_from_files, get_filenames, ItemChange};
-use lang::LanguageItem;
+use crate::prompts::{
+    chatgpt_wrong_answer, chatgpt_wrong_code_proposal, get_system_prompt,
+    user_action_to_chatgpt_prompt, wrap_user_message,
+};
+use crate::search::{
+    apply_changes, extract_all_items_from_files, get_filenames, parse_code, ItemChange,
+};
 
-fn find_git_directory(mut path: PathBuf) -> Option<PathBuf> {
-    loop {
-        if path.join(".git").is_dir() {
-            return Some(path);
-        }
-
-        if !path.pop() {
-            // We have reached the root directory without finding .git
-            return None;
-        }
-    }
-}
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    load_env_variables();
+    utils::load_env_variables();
 
-    print_introduction();
+    utils::print_introduction();
 
     let system_prompt = get_system_prompt()?;
     let mut messages = vec![ChatCompletionMessage {
@@ -54,7 +47,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }];
 
     loop {
-        let user_message_content = get_user_input("User")?;
+        let user_message_content = utils::get_user_input("User")?;
         messages.push(create_chat_message(
             ChatCompletionMessageRole::User,
             Some(user_message_content.clone()),
@@ -69,25 +62,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn load_env_variables() {
-    dotenv().expect("Failed to read .env file");
-    set_key(env::var("OPENAI_KEY").expect("OPENAI_KEY not set"));
-}
-
-fn clear_screen() {
-    // This is the ANSI escape code to clear the screen
-    print!("\x1B[2J\x1B[1;1H");
-    // Flush the output to ensure it is displayed
-    stdout().flush().unwrap();
-}
-
-fn print_introduction() {
-    clear_screen();
-    println!(
-        "{}",
-        "Welcome to MechaTyper! Here you can interactively work with the program.\nType in your task, and get assistance!".bright_blue()
-    );
-}
 async fn process_user_message(
     user_message_content: &str,
     messages: &mut Vec<ChatCompletionMessage>,
@@ -109,20 +83,20 @@ async fn process_user_message(
 
             match instructions {
                 Ok(InitialInstruction::GoodInstructions(good_instructions)) => {
-                    println!("Mechatyper: {}", good_instructions.answer.green());
+                    mechatype_answer(&good_instructions.answer);
                     make_change(good_instructions).await?;
                     break;
                 }
                 Ok(InitialInstruction::UserError(user_error)) => {
-                    println!("Mechatyper: {}", user_error.answer.red());
+                    mechatype_answer(&user_error.answer.red());
                     break;
                 }
                 Ok(InitialInstruction::ClarificationNeeded(mut clarification)) => {
                     // Inner loop for clarification
                     loop {
-                        println!("Mechatyper: {}", clarification.answer.yellow());
+                        mechatype_answer(&clarification.answer.red());
 
-                        let clarification_content = get_user_input("User")?;
+                        let clarification_content = utils::get_user_input("User")?;
 
                         messages.push(create_chat_message(
                             ChatCompletionMessageRole::User,
@@ -152,10 +126,7 @@ async fn process_user_message(
                     return Ok(false);
                 }
                 Ok(InitialInstruction::TooManyTries) => {
-                    println!(
-                        "{}",
-                        "Mechatyper: Too many tries. Try to rephrase your query.".red()
-                    );
+                    mechatype_answer("Too many tries. Try to rephrase your query.");
                     break;
                 }
                 Err(err) => {
@@ -187,12 +158,8 @@ async fn process_user_message(
     Ok(true)
 }
 
-fn get_user_input(prompt: &str) -> Result<String> {
-    print!("{}: ", prompt);
-    stdout().flush()?;
-    let mut user_input = String::new();
-    stdin().read_line(&mut user_input)?;
-    Ok(user_input)
+fn mechatype_answer(text: &str) {
+    println!("{}: {}", "MechaTyper".green().bold(), text.green());
 }
 
 fn create_chat_message(
@@ -221,7 +188,7 @@ async fn make_change(good_instructions: GoodInstructions) -> Result<()> {
         .unwrap_or(".".to_string())
         .into();
 
-    if find_git_directory(folder.clone()).is_none() {
+    if utils::find_git_directory(folder.clone()).is_none() {
         bail!("The target directory or its parents should be inside a git repository (should contain a .git folder).");
     }
 
@@ -232,48 +199,76 @@ async fn make_change(good_instructions: GoodInstructions) -> Result<()> {
         &language.file_extensions(),
         &language.get_excluded_directories(),
     )?;
-    let functions =
-        extract_all_items_from_files(files, language.clone(), good_instructions.item.clone())?;
+    let functions = extract_all_items_from_files(files, good_instructions.item.clone())?;
 
     let mut changes = vec![];
     for function in functions {
-        println!("Changing function in file: {:?}", function.filename);
-        // println!("{:#?}", function);
-        // println!("FUNCTION BEFORE:\n\n{}", function.definition);
-        let prompt_text = user_action_to_chatgpt_prompt(
-            &good_instructions.item,
-            &good_instructions.user_message
-        ).replace("<CODE>", &function.definition);
-        let messages = vec![ChatCompletionMessage {
-            role: ChatCompletionMessageRole::User,
-            content: Some(
-                prompt_text
-            ),
-            name: None,
-            function_call: None,
-        }];
+        println!("Changing item in file: {:?}", function.filename);
+        let mut new_code = function.definition.clone();
+        let mut retry_count = 0;
+        loop {
+            let prompt_text = if retry_count == 0 {
+                // First iteration: prompt to apply the suggested action
+                user_action_to_chatgpt_prompt(
+                    &good_instructions.item,
+                    &good_instructions.user_message,
+                )
+                .replace("<CODE>", &new_code)
+            } else {
+                // Subsequent iterations: prompt indicating that the previous change was incorrect
+                match chatgpt_wrong_code_proposal(
+                    &function.definition,
+                    &new_code,
+                    "Error message from parser",
+                ) {
+                    Ok(wrong_code_prompt) => wrong_code_prompt,
+                    Err(_) => {
+                        println!("Error generating prompt for wrong code proposal. Skipping...");
+                        break;
+                    }
+                }
+            };
 
-        let chat_completion = ChatCompletion::builder("gpt-3.5-turbo-16k-0613", messages)
-            .create()
-            .await?;
-        let reply = chat_completion
-            .choices
-            .first()
-            .unwrap()
-            .message
-            .content
-            .clone()
-            .unwrap();
+            let messages = vec![ChatCompletionMessage {
+                role: ChatCompletionMessageRole::User,
+                content: Some(prompt_text),
+                name: None,
+                function_call: None,
+            }];
 
-        changes.push(ItemChange {
-            before: function.clone(),
-            after: reply.clone(),
-        });
+            let chat_completion = ChatCompletion::builder("gpt-3.5-turbo-16k-0613", messages)
+                .create()
+                .await?;
+            new_code = chat_completion
+                .choices
+                .first()
+                .unwrap()
+                .message
+                .content
+                .clone()
+                .unwrap();
 
-        // println!("FUNCTION AFTER:\n\n{}", reply);
+            // Check if the reply from ChatGPT can be parsed
+            if parse_code(&new_code, &good_instructions.item).is_ok() {
+                // If the parsing is successful, save the change
+                changes.push(ItemChange {
+                    before: function.clone(),
+                    after: new_code.clone(),
+                });
+                break;
+            } else {
+                // Retry up to 3 times before skipping
+                retry_count += 1;
+                if retry_count >= 3 {
+                    println!(
+                        "Failed to parse the code for function: {:?} after 3 attempts. Skipping...",
+                        function.filename
+                    );
+                    break;
+                }
+            }
+        }
     }
-
-    // println!("Changes to apply: {}", changes.len());
 
     apply_changes(changes)?;
 

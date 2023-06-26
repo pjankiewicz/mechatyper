@@ -1,5 +1,4 @@
 use crate::lang::{ProgItem, ProgLanguage, PythonProgItem};
-use crate::prompts::SimpleAction;
 use anyhow::{anyhow, Result};
 use schemars::{schema_for, JsonSchema};
 use serde::{Deserialize, Serialize};
@@ -30,7 +29,7 @@ pub struct ClarificationNeeded {
     pub folder: Option<String>,
     pub answer: String,
     pub user_message: String,
-    pub clarification_needed: bool
+    pub clarification_needed: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]

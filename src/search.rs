@@ -6,9 +6,9 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use anyhow::{self, bail, Context, Result};
-use tree_sitter::{Node, Parser, Query, QueryCursor};
+use tree_sitter::{Language, Node, Parser, Query, QueryCursor, Tree};
 
-use crate::lang::{LanguageItem, ProgItem, ProgLanguage};
+use crate::lang::{ProgItem, ProgLanguage};
 
 #[derive(Clone, Debug)]
 pub struct ItemDef {
@@ -69,22 +69,17 @@ pub fn extract_all_items_from_directory(
     let extensions = language_enum.file_extensions();
     let excluded = language_enum.get_excluded_directories();
     let files = get_filenames(directory_path, &extensions, &excluded)?;
-    extract_all_items_from_files(files, language_enum, item)
+    extract_all_items_from_files(files, item)
 }
 pub fn extract_sexpr_from_string(
     source_code: &str,
     filename: &PathBuf,
     item: &ProgItem,
 ) -> Result<Vec<ItemDef>> {
-    let mut parser = Parser::new();
-    let language_enum: ProgLanguage = (*item).clone().into();
-    let language = language_enum.tree_sitter_language();
-    parser.set_language(language).unwrap();
-
-    let tree = parser.parse(source_code, None).unwrap();
+    let (language, tree) = parse_code(source_code, item)?;
     let mut items = Vec::new();
 
-    let query = Query::new(language, item.to_sexpr().as_str()).unwrap();
+    let query = Query::new(language, item.to_sexpr().as_str())?;
     let mut cursor = QueryCursor::new();
     let matches = cursor.matches(&query, tree.root_node(), source_code.as_bytes());
     let capture_names = query.capture_names();
@@ -141,11 +136,18 @@ pub fn extract_sexpr_from_string(
     Ok(items)
 }
 
-pub fn extract_all_items_from_files(
-    files: Vec<PathBuf>,
-    language_enum: ProgLanguage,
-    item: ProgItem,
-) -> Result<Vec<ItemDef>> {
+pub fn parse_code(source_code: &str, item: &ProgItem) -> Result<(Language, Tree)> {
+    let mut parser = Parser::new();
+    let language_enum: ProgLanguage = (*item).clone().into();
+    let language = language_enum.tree_sitter_language();
+    parser.set_language(language).unwrap();
+    let tree = parser
+        .parse(source_code, None)
+        .context("Cannot parse code")?;
+    Ok((language, tree))
+}
+
+pub fn extract_all_items_from_files(files: Vec<PathBuf>, item: ProgItem) -> Result<Vec<ItemDef>> {
     let mut all_functions = Vec::new();
     for file_path in files {
         let mut file = File::open(&file_path)?;
@@ -252,7 +254,7 @@ pub fn apply_changes(changes: Vec<ItemChange>) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lang::{PythonItem, PythonProgItem};
+    use crate::lang::PythonProgItem;
     use std::fs::{self, File};
     use std::io::Write;
     use std::path::Path;
