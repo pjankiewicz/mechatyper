@@ -8,6 +8,10 @@
 
 <img src="img/demo.gif"/>
 
+## Word of Caution
+
+:warning: MechaTyper is an experimental tool and utilizes a paid version of OpenAI for some of its features. Please be mindful of your usage as it may incur costs. Additionally, while MechaTyper aims to be helpful, it is not foolproof. We advise users to review the generated code and exercise caution. Use MechaTyper at your own risk. We are not responsible for any unintended consequences or damages that may arise from using this tool.
+
 ## Features
 
 - **Code Parsing**: MechaTyper uses the `tree-sitter` library to parse source code files in various programming languages.
