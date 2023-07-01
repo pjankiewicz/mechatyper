@@ -1,5 +1,5 @@
 use anyhow::Result;
-use schemars::{JsonSchema, schema_for};
+use schemars::{schema_for, JsonSchema};
 use serde::{Deserialize, Serialize};
 use strum_macros::{EnumString, EnumVariantNames};
 
@@ -147,4 +147,61 @@ Requirements:
 - dont add comments"#,
         old_code, new_code, error_message
     ))
+}
+
+pub fn quickcheck_prompt(task: &str) -> String {
+    format!(
+        r#"
+Write a Python function that detects if a code snippet, representing a single function or class, is a good candidate for applying a specific change. The function should take the code snippet as input and return a boolean value indicating whether the code snippet meets the criteria for the change. Ensure that the function only checks the contents of the code snippet and does not actually modify it. The function should adhere to the following signature:
+
+```python
+def detect(code: str) -> bool:
+    # Your code here
+    pass
+```
+
+Please specify the specific change or condition you want the function to check for, and I will provide you with the corresponding Python code. Please note that the response should be provided as a code snippet only, without any additional comments or explanations.
+
+Example 1:
+Task: "remove unwrap from functions, convert them to use Result from anyhow crate"
+
+should return a Python function:
+```python
+def detect(code: str) -> bool:
+    return "unwrap" in code
+```
+
+Example 2:
+Task: "split long functions (above 50 lines of code) to smaller functions"
+
+should return a Python function:
+```python
+def detect(code: str) -> bool:
+    return len(code.splitlines()) > 50
+```
+
+Example 3:
+Task: "Refactor all Python functions"
+
+no condition can be applied so the function should always return True:
+```python
+def detect(code: str) -> bool:
+    return True
+```
+
+Requirements:
+- return only Python code without any additional comments or explanations
+- don't include any special characters before or after the code
+- the function can be only applied to a specific code fragment like a function or a class
+- you can use only standard library
+- the function can return false positives so you can use many different conditions connected with "or"
+
+~~~~~~~~~~~~
+
+TASK: {}
+
+```python
+"#,
+        task
+    )
 }

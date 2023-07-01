@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use schemars::{JsonSchema, schema_for};
+use schemars::{schema_for, JsonSchema};
 use serde::{Deserialize, Serialize};
 
 use crate::lang::{ProgItem, ProgLanguage, PythonProgItem};

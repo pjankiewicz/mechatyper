@@ -26,8 +26,10 @@ use crate::search::{
     apply_changes, extract_all_items_from_files, get_filenames, parse_code, ItemChange,
 };
 
+mod code_cleaning;
 mod instructions;
 mod lang;
+mod llm;
 mod prompts;
 mod search;
 mod utils;

@@ -5,6 +5,7 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
+use crate::code_cleaning::apply_indentation;
 use anyhow::{self, bail, Context, Result};
 use tree_sitter::{Language, Node, Parser, Query, QueryCursor, Tree};
 
@@ -161,51 +162,6 @@ pub fn extract_all_items_from_files(files: Vec<PathBuf>, item: ProgItem) -> Resu
     Ok(all_functions)
 }
 
-fn apply_indentation(old_code: &str, new_code: &str) -> String {
-    let old_code_lines: Vec<&str> = old_code.lines().collect();
-    let new_code_lines: Vec<&str> = new_code.lines().collect();
-
-    // Detect the indentation in old code
-    let old_indentation = old_code_lines
-        .iter()
-        .filter(|line| !line.trim().is_empty())
-        .map(|line| {
-            line.chars()
-                .take_while(|c| c.is_whitespace())
-                .collect::<String>()
-        })
-        .next()
-        .unwrap_or_default();
-
-    // Detect the number of leading whitespace characters in new code
-    let new_indentation_count = new_code_lines
-        .iter()
-        .filter(|line| !line.trim().is_empty())
-        .map(|line| line.chars().take_while(|c| c.is_whitespace()).count())
-        .min()
-        .unwrap_or(0);
-
-    // Apply indentation to new code
-    let indented_code = new_code_lines
-        .into_iter()
-        .map(|line| {
-            if line.trim().is_empty() {
-                line.to_string()
-            } else {
-                old_indentation.clone() + &line[new_indentation_count..]
-            }
-        })
-        .collect::<Vec<String>>()
-        .join("\n");
-
-    // Ensure the output ends with a newline character
-    if indented_code.ends_with('\n') {
-        indented_code
-    } else {
-        indented_code + "\n"
-    }
-}
-
 pub fn apply_changes(changes: Vec<ItemChange>) -> Result<()> {
     // Group changes by file
     let mut changes_by_file: HashMap<PathBuf, Vec<ItemChange>> = HashMap::new();
@@ -301,30 +257,6 @@ mod tests {
             modified_content,
             "fn modified_example() {\n    println!(\"Hello, ChatGPT!\");\n}\n"
         );
-    }
-
-    #[test]
-    fn test_apply_indentation_with_spaces() {
-        let old_code = "    def old_function():\n        print('This is the old function')\n";
-        let new_code = "def new_function():\n    print('This is the new function')\n";
-
-        let expected_indented_new_code =
-            "    def new_function():\n        print('This is the new function')\n";
-        let indented_new_code = apply_indentation(old_code, new_code);
-
-        assert_eq!(indented_new_code, expected_indented_new_code);
-    }
-
-    #[test]
-    fn test_apply_indentation_with_tabs() {
-        let old_code = "\tdef old_function():\n\t\tprint('This is the old function')\n";
-        let new_code = "def new_function():\n\tprint('This is the new function')\n";
-
-        let expected_indented_new_code =
-            "\tdef new_function():\n\t\tprint('This is the new function')\n";
-        let indented_new_code = apply_indentation(old_code, new_code);
-
-        assert_eq!(indented_new_code, expected_indented_new_code);
     }
 
     #[test]
